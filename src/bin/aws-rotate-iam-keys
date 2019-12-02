@@ -95,6 +95,24 @@ do
   FIRST_KEY_ID=${FIRST_KEY_ID:-$ACCESS_KEY_ID}
 done
 
+echo "Verifying configuration"
+ACCESS_KEY_IDS=()
+for i in "${!PROFILES_ARR[@]}"
+do
+  ACCESS_KEY_ID=$(aws configure get ${PROFILES_ARR[i]}.aws_access_key_id 2>/dev/null)
+  if [[ -z "$ACCESS_KEY_ID" ]]; then
+    echo "Could not find key for profile ${PROFILES_ARR[i]}. Ensure you have a profile set up using 'aws configure'." >&2
+    exit 1
+  fi
+  ACCESS_KEY_IDS+=($ACCESS_KEY_ID)
+  FIRST_KEY_ID=${FIRST_KEY_ID:-$ACCESS_KEY_ID}
+done
+
+if [[ $(echo "${ACCESS_KEY_IDS[@]}" | tr ' ' '\n' | sort -u | wc -l) -ne "1" ]]; then
+  echo "Different access keys ${ACCESS_KEY_IDS[@]} found for profiles ${PROFILES_ARR[@]}. Check your aws configuration." >&2
+  exit 1
+fi
+
 echo "Verifying credentials"
 KEY_COUNT=$(aws iam list-access-keys --output json --profile $FIRST_PROFILE | jq '.AccessKeyMetadata | length' || exit 1)
 if [[ "$KEY_COUNT" -gt "1" ]]; then
